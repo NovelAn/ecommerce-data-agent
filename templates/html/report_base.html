@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{report_title}</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-light: #7c8fea;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
+            color: white;
+            padding: 32px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .header .meta {
+            font-size: 14px;
+            opacity: 0.9;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .filter-bar select,
+        .filter-bar input {
+            padding: 8px 16px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+        .filter-bar button {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-bar .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .filter-bar .btn-primary:hover {
+            background: var(--primary-light);
+        }
+        .filter-bar .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .metric-card .label {
+            font-size: 14px;
+            color: var(--gray-500);
+            margin-bottom: 8px;
+        }
+        .metric-card .value {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        .metric-card .change {
+            font-size: 13px;
+            margin-top: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .metric-card .change.up {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        .metric-card .change.down {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .metric-card .change.neutral {
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .chart-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .chart-card .card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .chart-container {
+            height: 350px;
+        }
+
+        /* Two Column Layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+        @media (max-width: 768px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Insights Section */
+        .insights-section {
+            background: #fefce8;
+            border-left: 4px solid var(--warning);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .insights-section h3 {
+            font-size: 16px;
+            color: #92400e;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .insights-section ul {
+            list-style: none;
+        }
+        .insights-section li {
+            font-size: 14px;
+            color: var(--gray-700);
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+        .insights-section li::before {
+            content: '💡';
+            position: absolute;
+            left: 0;
+        }
+
+        /* Actions Section */
+        .actions-section {
+            background: #f0fdf4;
+            border-left: 4px solid var(--success);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .actions-section h3 {
+            font-size: 16px;
+            color: #166534;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .actions-section ul {
+            list-style: none;
+        }
+        .actions-section li {
+            font-size: 14px;
+            color: var(--gray-700);
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+        .actions-section li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        /* Data Table */
+        .data-table-wrapper {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .data-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-600);
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .data-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--gray-500);
+            font-size: 13px;
+        }
+
+        /* Print Styles */
+        @media print {
+            body { background: white; }
+            .filter-bar { display: none; }
+            .chart-card { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>{report_title}</h1>
+            <div class="meta">
+                <span>📅 数据时间：{data_range}</span>
+                <span>⏰ 生成时间：{generated_at}</span>
+                <span>👤 制作：{author}</span>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <select id="timeRange" onchange="updateData()">
+                <option value="7d">近 7 天</option>
+                <option value="30d">近 30 天</option>
+                <option value="90d">近 90 天</option>
+            </select>
+            <select id="channel" onchange="updateData()">
+                <option value="all">全部渠道</option>
+                <option value="app">APP</option>
+                <option value="web">网页</option>
+                <option value="mini">小程序</option>
+            </select>
+            <button class="btn-primary" onclick="refreshData()">🔄 刷新数据</button>
+            <button class="btn-secondary" onclick="exportToExcel()">📥 导出 Excel</button>
+            <button class="btn-secondary" onclick="window.print()">🖨️ 打印</button>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="label">GMV</div>
+                <div class="value" id="metric-gmv">{gmv}</div>
+                <div class="change {gmv_trend}" id="change-gmv">{gmv_change}</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">订单量</div>
+                <div class="value" id="metric-orders">{orders}</div>
+                <div class="change {orders_trend}" id="change-orders">{orders_change}</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">客单价</div>
+                <div class="value" id="metric-aov">{aov}</div>
+                <div class="change {aov_trend}" id="change-aov">{aov_change}</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">DAU</div>
+                <div class="value" id="metric-dau">{dau}</div>
+                <div class="change {dau_trend}" id="change-dau">{dau_change}</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="two-col">
+            <div class="chart-card">
+                <div class="card-header">
+                    <h3 class="card-title">📈 GMV 趋势</h3>
+                </div>
+                <div id="chart-trend" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <div class="card-header">
+                    <h3 class="card-title">📊 渠道分布</h3>
+                </div>
+                <div id="chart-channel" class="chart-container"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="card-header">
+                <h3 class="card-title">🔄 转化漏斗</h3>
+            </div>
+            <div id="chart-funnel" class="chart-container"></div>
+        </div>
+
+        <!-- Insights -->
+        <div class="insights-section">
+            <h3>💡 关键洞察</h3>
+            <ul>
+                {insights_list}
+            </ul>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions-section">
+            <h3>✅ 建议行动</h3>
+            <ul>
+                {actions_list}
+            </ul>
+        </div>
+
+        <!-- Data Table -->
+        <div class="data-table-wrapper">
+            <div class="card-header">
+                <h3 class="card-title">📋 明细数据</h3>
+            </div>
+            <table class="data-table" id="data-table">
+                <thead>
+                    <tr>
+                        {table_headers}
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>数据来源：{data_source}</p>
+            <p>如有疑问，请联系数据分析团队</p>
+        </div>
+    </div>
+
+    <script>
+        // Data
+        const reportData = {chart_data};
+
+        // Initialize Charts
+        function initCharts() {
+            // Trend Chart
+            const trendChart = echarts.init(document.getElementById('chart-trend'));
+            trendChart.setOption({
+                tooltip: { trigger: 'axis' },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'category', data: reportData.dates },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { formatter: '¥{value}' }
+                },
+                series: [{
+                    type: 'line',
+                    data: reportData.gmvValues,
+                    smooth: true,
+                    areaStyle: { opacity: 0.1 },
+                    itemStyle: { color: '#667eea' }
+                }]
+            });
+
+            // Channel Chart
+            const channelChart = echarts.init(document.getElementById('chart-channel'));
+            channelChart.setOption({
+                tooltip: { trigger: 'item' },
+                series: [{
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    data: reportData.channelData,
+                    label: { show: true, formatter: '{b}: {d}%' }
+                }]
+            });
+
+            // Funnel Chart
+            const funnelChart = echarts.init(document.getElementById('chart-funnel'));
+            funnelChart.setOption({
+                tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+                series: [{
+                    type: 'funnel',
+                    left: '10%',
+                    width: '80%',
+                    data: reportData.funnelData
+                }]
+            });
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            const table = document.getElementById('data-table');
+            const wb = XLSX.utils.table_to_book(table, { sheet: '数据' });
+            XLSX.writeFile(wb, '{report_title}_{date}.xlsx');
+        }
+
+        // Refresh Data
+        function refreshData() {
+            location.reload();
+        }
+
+        // Update Data based on filters
+        function updateData() {
+            const timeRange = document.getElementById('timeRange').value;
+            const channel = document.getElementById('channel').value;
+            // Implement data update logic
+            console.log('Updating data...', timeRange, channel);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initCharts);
+
+        // Responsive charts
+        window.addEventListener('resize', function() {
+            echarts.getInstanceByDom(document.getElementById('chart-trend')).resize();
+            echarts.getInstanceByDom(document.getElementById('chart-channel')).resize();
+            echarts.getInstanceByDom(document.getElementById('chart-funnel')).resize();
+        });
+    </script>
+</body>
+</html>
